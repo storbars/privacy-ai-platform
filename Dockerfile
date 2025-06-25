@@ -1,50 +1,33 @@
-# Privacy-First AI Platform - N8N with Nillion SDK
+# N8N with Nillion SDK - Proper isolation approach
 FROM n8nio/n8n:latest
 
-# Switch to root to install additional packages
+# Switch to root for installations
 USER root
 
-# Install system dependencies needed for Nillion SDK
-RUN apk add --no-cache \
-    git \
-    python3 \
-    py3-pip \
-    make \
-    g++ \
-    libc6-compat \
-    curl
+# Install system dependencies for Nillion
+RUN apk add --no-cache git make g++ python3
 
-# Set environment variables
+# Install Nillion SDK globally WITHOUT touching n8n's internals
+RUN npm install -g @nillion/client-core@latest @nillion/client-vms@latest
+
+# Verify n8n command still exists and works
+RUN which n8n && n8n --version
+
+# Set Nillion environment variables
 ENV NILLION_NETWORK=mainnet
 ENV NILLION_RPC_URL=https://nilchain-rpc.nillion.network
 ENV NILLION_API_URL=https://nilchain-api.nillion.network
 ENV NILLION_GRPC_URL=https://nillion-grpc.lavenderfive.com
+
+# N8N configuration
+ENV N8N_HOST=0.0.0.0
+ENV N8N_PORT=5678
+ENV N8N_PROTOCOL=https
 ENV N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
 ENV NODE_OPTIONS="--max-old-space-size=2048"
 
-# Create separate directory for Nillion packages
-RUN mkdir -p /opt/nillion && cd /opt/nillion
-
-# Initialize a fresh package.json for Nillion
-RUN cd /opt/nillion && npm init -y
-
-# Install correct Nillion packages with actual available names
-RUN cd /opt/nillion && \
-    npm install @nillion/client-core@latest @nillion/client-vms@latest
-
-# Add Nillion modules to Node.js path so n8n can find them
-ENV NODE_PATH="/opt/nillion/node_modules:$NODE_PATH"
-
-# Create symlinks so n8n Function nodes can require() them
-RUN mkdir -p /home/node/nillion-modules && \
-    ln -s /opt/nillion/node_modules/@nillion /home/node/nillion-modules/@nillion
-
-# Add to require path for n8n Function nodes
-ENV N8N_CUSTOM_EXTENSIONS="/home/node/nillion-modules"
-
-# Fix ownership and permissions
-RUN chown -R node:node /home/node && \
-    chown -R node:node /opt/nillion
+# Make sure node user can access everything
+RUN chown -R node:node /home/node
 
 # Switch back to node user
 USER node
@@ -52,9 +35,9 @@ USER node
 # Set working directory
 WORKDIR /home/node
 
-# Expose n8n default port
+# Expose port
 EXPOSE 5678
 
-# Use original n8n entrypoint
+# Use the EXACT same startup as original n8n image
 ENTRYPOINT ["tini", "--", "/docker-entrypoint.sh"]
 CMD ["n8n"]
