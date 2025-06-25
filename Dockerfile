@@ -1,30 +1,29 @@
-# N8N with Runtime Nillion SDK Installation
+# N8N with Runtime Nillion SDK Installation - Fixed syntax
 FROM n8nio/n8n:latest
 
 # Switch to root temporarily
 USER root
 
-# Only install essential build tools, don't install npm packages yet
-RUN apk add --no-cache git make g++ python3
+# Install essential build tools
+RUN apk add --no-cache git make g++ python3 bash
 
-# Create script that installs Nillion SDK AFTER n8n starts
-RUN cat > /usr/local/bin/nillion-install.sh << 'EOF'
-#!/bin/bash
-echo "🔐 Installing Nillion SDK at runtime..."
-
-# Install Nillion packages in background after n8n starts
-(
-  sleep 30  # Wait for n8n to fully start
-  npm install -g @nillion/client-core@latest @nillion/client-vms@latest 2>/dev/null
-  echo "✅ Nillion SDK installed"
-) &
-
-# Start n8n normally
-exec "$@"
-EOF
+# Create startup script with proper Docker syntax
+RUN echo '#!/bin/bash' > /usr/local/bin/nillion-start.sh && \
+    echo 'echo "Starting N8N with Nillion SDK support..."' >> /usr/local/bin/nillion-start.sh && \
+    echo '' >> /usr/local/bin/nillion-start.sh && \
+    echo '# Install Nillion SDK in background after n8n starts' >> /usr/local/bin/nillion-start.sh && \
+    echo '(' >> /usr/local/bin/nillion-start.sh && \
+    echo '  sleep 30' >> /usr/local/bin/nillion-start.sh && \
+    echo '  echo "Installing Nillion SDK..."' >> /usr/local/bin/nillion-start.sh && \
+    echo '  npm install -g @nillion/client-core@latest @nillion/client-vms@latest 2>/dev/null' >> /usr/local/bin/nillion-start.sh && \
+    echo '  echo "Nillion SDK ready for use"' >> /usr/local/bin/nillion-start.sh && \
+    echo ') &' >> /usr/local/bin/nillion-start.sh && \
+    echo '' >> /usr/local/bin/nillion-start.sh && \
+    echo '# Start n8n normally' >> /usr/local/bin/nillion-start.sh && \
+    echo 'exec "$@"' >> /usr/local/bin/nillion-start.sh
 
 # Make script executable
-RUN chmod +x /usr/local/bin/nillion-install.sh
+RUN chmod +x /usr/local/bin/nillion-start.sh
 
 # Set environment variables
 ENV NILLION_NETWORK=mainnet
@@ -49,6 +48,6 @@ WORKDIR /home/node
 # Expose port
 EXPOSE 5678
 
-# Use our wrapper script that installs Nillion after n8n starts
-ENTRYPOINT ["/usr/local/bin/nillion-install.sh", "tini", "--", "/docker-entrypoint.sh"]
+# Use our startup script
+ENTRYPOINT ["/usr/local/bin/nillion-start.sh", "tini", "--", "/docker-entrypoint.sh"]
 CMD ["n8n"]
