@@ -1,41 +1,54 @@
-#!/bin/bash
-# start-simple.sh - Simplified startup script (uten Nillion for nå)
+# Backup Dockerfile - n8n only (uten Nillion for nå)
+# Vi får Nillion til å fungere etter at n8n kjører
 
-set -e
+FROM node:18-bullseye
 
-echo "🚀 Starting n8n on Railway..."
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    curl \
+    wget \
+    bash \
+    openssl \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
-# Railway environment variables setup
-export N8N_HOST=${N8N_HOST:-"0.0.0.0"}
-export N8N_PORT=${PORT:-8080}
-export N8N_PROTOCOL=${N8N_PROTOCOL:-"http"}
+# Set up working directory
+WORKDIR /app
 
-# n8n environment variables
-export N8N_USER_FOLDER="/app/.n8n"
-export N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY:-$(openssl rand -hex 32)}
+# Install n8n globally
+RUN npm install -g n8n@latest
 
-echo "📋 Configuration:"
-echo "   Host: $N8N_HOST"
-echo "   Port: $N8N_PORT"
-echo "   User folder: $N8N_USER_FOLDER"
+# Create n8n data directory
+RUN mkdir -p /app/.n8n && \
+    chmod 755 /app/.n8n
 
-# Webhook URL setup for Railway
-if [ -n "$RAILWAY_STATIC_URL" ]; then
-    export WEBHOOK_URL="https://$RAILWAY_STATIC_URL"
-    echo "   Webhook URL: $WEBHOOK_URL"
-fi
+# Copy package.json first
+COPY package*.json ./
 
-# Start n8n
-echo "🎯 Starting n8n..."
+# Install Node.js dependencies
+RUN npm install
 
-# Cleanup function ved shutdown
-cleanup() {
-    echo "🛑 Shutting down gracefully..."
-    exit 0
-}
+# Copy simplified startup script
+COPY start-simple.sh /app/start.sh
+RUN chmod +x /app/start.sh
 
-# Trap signals for graceful shutdown
-trap cleanup SIGTERM SIGINT
+# Environment variables
+ENV N8N_USER_FOLDER=/app/.n8n
+ENV N8N_BASIC_AUTH_ACTIVE=true
+ENV N8N_BASIC_AUTH_USER=admin
+ENV N8N_BASIC_AUTH_PASSWORD=changeme123
+ENV N8N_HOST=0.0.0.0
+ENV N8N_PORT=8080
+ENV N8N_PROTOCOL=http
 
-# Start n8n
-exec n8n start
+# Expose port
+EXPOSE 8080
+
+# Health check
+HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:8080/healthz || exit 1
+
+# Start application
+CMD ["/app/start.sh"]
