@@ -1,7 +1,7 @@
 # Backup Dockerfile - n8n only (uten Nillion for nå)
 # Vi får Nillion til å fungere etter at n8n kjører
 
-FROM node:18-bullseye
+FROM node:20-bullseye
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
