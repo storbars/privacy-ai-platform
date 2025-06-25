@@ -1,4 +1,5 @@
 # Privacy-First AI Platform - N8N with Nillion SDK
+# Using separate installation approach to avoid workspace conflicts
 FROM n8nio/n8n:latest
 
 # Switch to root to install additional packages
@@ -14,44 +15,47 @@ RUN apk add --no-cache \
     libc6-compat \
     curl
 
-# Set Nillion environment variables
+# Set environment variables
 ENV NILLION_NETWORK=mainnet
 ENV NILLION_RPC_URL=https://nilchain-rpc.nillion.network
 ENV NILLION_API_URL=https://nilchain-api.nillion.network
 ENV NILLION_GRPC_URL=https://nillion-grpc.lavenderfive.com
-
-# Set Node.js memory options for larger workflows
+ENV N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
 ENV NODE_OPTIONS="--max-old-space-size=2048"
 
-# Fix permissions for n8n config
-ENV N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
+# Create separate directory for Nillion packages
+RUN mkdir -p /opt/nillion && cd /opt/nillion
 
-# Create package.json in working directory
-WORKDIR /tmp/nillion-setup
-COPY package.json ./
+# Initialize a fresh package.json for Nillion
+RUN cd /opt/nillion && npm init -y
 
-# Install Nillion SDK packages in n8n's node_modules
-RUN cd /usr/local/lib/node_modules/n8n && \
-    npm install @nillion/client-wasm@latest @nillion/client-vms@latest
+# Install Nillion packages in separate directory
+RUN cd /opt/nillion && \
+    npm install @nillion/client-wasm@0.6.0 @nillion/client-vms@0.6.0
 
-# Create logs directory for privacy layer
-RUN mkdir -p /home/node/.n8n/logs && \
-    chown -R node:node /home/node/.n8n && \
-    chmod 600 /home/node/.n8n/config 2>/dev/null || true
+# Add Nillion modules to Node.js path so n8n can find them
+ENV NODE_PATH="/opt/nillion/node_modules:$NODE_PATH"
 
-# Switch back to node user for security
+# Create custom node_modules symlinks so n8n can require() them
+RUN mkdir -p /home/node/nillion-modules && \
+    ln -s /opt/nillion/node_modules/@nillion /home/node/nillion-modules/@nillion
+
+# Add to require path for n8n Function nodes
+ENV N8N_CUSTOM_EXTENSIONS="/home/node/nillion-modules"
+
+# Fix ownership and permissions
+RUN chown -R node:node /home/node && \
+    chown -R node:node /opt/nillion
+
+# Switch back to node user
 USER node
 
-# Set working directory back to n8n default
+# Set working directory
 WORKDIR /home/node
 
 # Expose n8n default port
 EXPOSE 5678
 
-# Health check to ensure n8n is running
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:5678/healthz || exit 1
-
-# Use the original n8n entrypoint and command
+# Use original n8n entrypoint
 ENTRYPOINT ["tini", "--", "/docker-entrypoint.sh"]
 CMD ["n8n"]
