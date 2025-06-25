@@ -1,17 +1,10 @@
 {
   "name": "privacy-ai-platform",
   "version": "1.0.0",
-  "description": "Privacy-First AI Consultation Platform med Nillion + n8n",
-  "main": "start.sh",
-  "scripts": {
-    "start": "./start.sh",
-    "dev": "n8n start",
-    "setup": "npm install && chmod +x start.sh"
-  },
+  "description": "Privacy-First AI Consultation Platform with Nillion mainnet integration",
   "dependencies": {
-    "axios": "^1.6.0",
-    "crypto": "^1.0.1",
-    "dotenv": "^16.3.1"
+    "@nillion/client-wasm": "^0.6.0",
+    "@nillion/client-vms": "^0.6.0"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -19,11 +12,12 @@
   "keywords": [
     "privacy",
     "ai",
-    "legal-tech",
     "nillion",
-    "n8n",
-    "consultation"
+    "consultation",
+    "blindcompute"
   ],
-  "author": "Your Name",
-  "license": "MIT"
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/storbars/privacy-ai-platform"
+  }
 }
