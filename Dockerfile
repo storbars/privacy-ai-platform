@@ -1,5 +1,4 @@
 # Privacy-First AI Platform - N8N with Nillion SDK
-# Using separate installation approach to avoid workspace conflicts
 FROM n8nio/n8n:latest
 
 # Switch to root to install additional packages
@@ -29,14 +28,14 @@ RUN mkdir -p /opt/nillion && cd /opt/nillion
 # Initialize a fresh package.json for Nillion
 RUN cd /opt/nillion && npm init -y
 
-# Install Nillion packages in separate directory
+# Install correct Nillion packages with actual available names
 RUN cd /opt/nillion && \
-    npm install @nillion/client-wasm@0.6.0 @nillion/client-vms@0.6.0
+    npm install @nillion/client-core@latest @nillion/client-vms@latest
 
 # Add Nillion modules to Node.js path so n8n can find them
 ENV NODE_PATH="/opt/nillion/node_modules:$NODE_PATH"
 
-# Create custom node_modules symlinks so n8n can require() them
+# Create symlinks so n8n Function nodes can require() them
 RUN mkdir -p /home/node/nillion-modules && \
     ln -s /opt/nillion/node_modules/@nillion /home/node/nillion-modules/@nillion
 
